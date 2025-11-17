@@ -66,6 +66,7 @@ let videoEnabled = true;
 let audioEnabled = true;
 let screenSharing = false;
 let originalVideoTrack = null;
+let originalAudioTrack = null;
 let meetingStartTime = null;
 let meetingTimerInterval = null;
 
@@ -241,11 +242,13 @@ function initializeMeeting() {
       socket.on("lobby-wait", (msg) => {
         lobbyMessage.textContent = msg;
         lobbyOverlay.classList.remove("hidden");
+        bottomToolbar.classList.add("hidden");
       });
 
       socket.on("joined-room", (data) => {
         isHost = data.isHost;
         lobbyOverlay.classList.add("hidden");
+        bottomToolbar.classList.remove("hidden");
         if (!meetingTimerInterval) startMeetingTimer();
         if (isHost) {
           lobbyHostSection.classList.remove("hidden");
@@ -608,24 +611,43 @@ screenShareBtn.addEventListener("click", async () => {
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
-        audio: false,
+        audio: true,
       });
-      const screenTrack = screenStream.getVideoTracks()[0];
+      const screenVideoTrack = screenStream.getVideoTracks()[0];
       originalVideoTrack = localStream.getVideoTracks()[0];
 
-      // Replace track in local stream
+      // Replace video track in local stream
       localStream.removeTrack(originalVideoTrack);
-      localStream.addTrack(screenTrack);
+      localStream.addTrack(screenVideoTrack);
 
-      // Replace in peers
+      // Replace video in peers
       Object.values(peers).forEach((peer) => {
         const sender = peer._pc
           .getSenders()
           .find((s) => s.track && s.track.kind === "video");
-        if (sender) sender.replaceTrack(screenTrack);
+        if (sender) sender.replaceTrack(screenVideoTrack);
       });
 
-      screenTrack.onended = () => {
+      // Handle audio track if present (system audio)
+      const screenAudioTracks = screenStream.getAudioTracks();
+      if (screenAudioTracks.length > 0) {
+        const screenAudioTrack = screenAudioTracks[0];
+        originalAudioTrack = localStream.getAudioTracks()[0];
+        if (originalAudioTrack) {
+          localStream.removeTrack(originalAudioTrack);
+        }
+        localStream.addTrack(screenAudioTrack);
+
+        // Replace audio in peers
+        Object.values(peers).forEach((peer) => {
+          const sender = peer._pc
+            .getSenders()
+            .find((s) => s.track && s.track.kind === "audio");
+          if (sender) sender.replaceTrack(screenAudioTrack);
+        });
+      }
+
+      screenVideoTrack.onended = () => {
         stopScreenShare();
       };
 
@@ -641,16 +663,30 @@ screenShareBtn.addEventListener("click", async () => {
 
 function stopScreenShare() {
   if (!originalVideoTrack || !localStream) return;
-  const screenTrack = localStream.getVideoTracks()[0];
-  if (screenTrack) screenTrack.stop();
-  localStream.removeTrack(screenTrack);
+  const screenVideoTrack = localStream.getVideoTracks()[0];
+  if (screenVideoTrack) screenVideoTrack.stop();
+  localStream.removeTrack(screenVideoTrack);
   localStream.addTrack(originalVideoTrack);
 
+  // Restore original audio if it was replaced
+  if (originalAudioTrack) {
+    const screenAudioTrack = localStream.getAudioTracks().find(track => track !== originalAudioTrack);
+    if (screenAudioTrack) {
+      localStream.removeTrack(screenAudioTrack);
+    }
+    localStream.addTrack(originalAudioTrack);
+  }
+
   Object.values(peers).forEach((peer) => {
-    const sender = peer._pc
+    const videoSender = peer._pc
       .getSenders()
       .find((s) => s.track && s.track.kind === "video");
-    if (sender) sender.replaceTrack(originalVideoTrack);
+    if (videoSender) videoSender.replaceTrack(originalVideoTrack);
+
+    const audioSender = peer._pc
+      .getSenders()
+      .find((s) => s.track && s.track.kind === "audio");
+    if (audioSender && originalAudioTrack) audioSender.replaceTrack(originalAudioTrack);
   });
 
   screenSharing = false;

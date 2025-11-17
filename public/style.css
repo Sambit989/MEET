@@ -347,6 +347,10 @@ video {
 /* Bottom toolbar */
 
 .bottom-toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -354,6 +358,7 @@ video {
   padding: 0.5rem 0.75rem;
   border-top: 1px solid var(--border);
   background: var(--bg-alt);
+  z-index: 1500;
 }
 
 .toolbar-btn {
@@ -398,8 +403,8 @@ video {
 #hostShareOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.95);
-  z-index: 999;
+  background: rgba(10, 15, 30, 0.97);
+  z-index: 2000;
   display: flex;
   align-items: center;
   justify-content: center;
