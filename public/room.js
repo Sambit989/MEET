@@ -69,6 +69,7 @@ let originalVideoTrack = null;
 let originalAudioTrack = null;
 let meetingStartTime = null;
 let meetingTimerInterval = null;
+let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 const peers = {}; // socketId -> SimplePeer
 const myVideo = document.createElement("video");
@@ -609,10 +610,8 @@ screenShareBtn.addEventListener("click", async () => {
   if (!localStream) return;
   if (!screenSharing) {
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: true,
-      });
+      const constraints = isMobile ? { video: true } : { video: true, audio: true };
+      const screenStream = await navigator.mediaDevices.getDisplayMedia(constraints);
       const screenVideoTrack = screenStream.getVideoTracks()[0];
       originalVideoTrack = localStream.getVideoTracks()[0];
 
