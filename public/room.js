@@ -4,12 +4,8 @@ const socket = io();
 const urlParams = new URLSearchParams(window.location.search);
 const roomId = urlParams.get("room");
 let roomPassword = urlParams.get("pwd") || "";
-let displayName = urlParams.get("name") || "";
+let displayName = urlParams.get("name") || "Guest";
 let isHost = urlParams.get("host") === "1";
-
-if (!displayName) {
-  displayName = prompt("Enter your name (optional):") || "Guest";
-}
 
 const roomLabel = document.getElementById("roomLabel");
 roomLabel.textContent = roomId ? `Room: ${roomId}` : "";
@@ -18,6 +14,7 @@ const videoGrid = document.getElementById("videoGrid");
 const toggleVideoBtn = document.getElementById("toggleVideo");
 const toggleAudioBtn = document.getElementById("toggleAudio");
 const leaveBtn = document.getElementById("leaveBtn");
+const bottomToolbar = document.getElementById("bottomToolbar");
 const screenShareBtn = document.getElementById("screenShareBtn");
 const whiteboardBtn = document.getElementById("whiteboardBtn");
 const captionsBtn = document.getElementById("captionsBtn");
@@ -34,6 +31,16 @@ const roomEndedOverlay = document.getElementById("roomEndedOverlay");
 const participantsList = document.getElementById("participantsList");
 const lobbyHostSection = document.getElementById("lobbyHostSection");
 const lobbyList = document.getElementById("lobbyList");
+
+const hostShareOverlay = document.getElementById("hostShareOverlay");
+const shareRoomId = document.getElementById("shareRoomId");
+const shareRoomLink = document.getElementById("shareRoomLink");
+const shareQR = document.getElementById("shareQR");
+const copyShareLink = document.getElementById("copyShareLink");
+const shareWA = document.getElementById("shareWA");
+const shareEmailLink = document.getElementById("shareEmailLink");
+const startMeetingBtn = document.getElementById("startMeetingBtn");
+const shareCountdown = document.getElementById("shareCountdown");
 
 const tabButtons = document.querySelectorAll(".tab-btn");
 const peopleTab = document.getElementById("peopleTab");
@@ -140,151 +147,207 @@ function setNetworkStatus(status) {
   }
 }
 
-// Init media and join room
-navigator.mediaDevices
-  .getUserMedia({
-    video: { width: 1280, height: 720 },
-    audio: { echoCancellation: true, noiseSuppression: true },
-  })
-  .then((stream) => {
-    localStream = stream;
-    addVideoStream(myVideo, stream, displayName + " (You)");
+function showHostShareScreen() {
+  const shareURL = `${window.location.origin}${window.location.pathname}?room=${roomId}&pwd=${roomPassword}`;
+  shareRoomId.textContent = roomId;
+  shareRoomLink.value = shareURL;
 
-    socket.emit("join-room", {
-      roomId,
-      username: displayName,
-      password: roomPassword,
-      isHost,
-    });
-
-    // Socket events binding
-    socket.on("connect", () => {
-      mySocketId = socket.id;
-      setNetworkStatus("good");
-    });
-
-    socket.io.on("reconnect_attempt", () => {
-      setNetworkStatus("medium");
-    });
-
-    socket.io.on("reconnect_failed", () => {
-      setNetworkStatus("bad");
-    });
-
-    socket.on("join-error", (msg) => {
-      alert(msg || "Could not join room.");
-      window.location.href = "/";
-    });
-
-    socket.on("lobby-wait", (msg) => {
-      lobbyMessage.textContent = msg;
-      lobbyOverlay.classList.remove("hidden");
-    });
-
-    socket.on("joined-room", (data) => {
-      isHost = data.isHost;
-      lobbyOverlay.classList.add("hidden");
-      if (!meetingTimerInterval) startMeetingTimer();
-      if (isHost) {
-        lobbyHostSection.classList.remove("hidden");
-      }
-    });
-
-    socket.on("all-users", (users) => {
-      users.forEach((userId) => {
-        const peer = createPeer(userId, socket.id, stream);
-        peers[userId] = peer;
-      });
-    });
-
-    socket.on("user-joined", (payload) => {
-      const peer = addPeer(payload.signal, payload.callerId, stream);
-      peers[payload.callerId] = peer;
-    });
-
-    socket.on("receiving-returned-signal", (payload) => {
-      const peer = peers[payload.id];
-      if (peer) {
-        peer.signal(payload.signal);
-      }
-    });
-
-    socket.on("user-left", (id) => {
-      if (peers[id]) {
-        peers[id].destroy();
-        delete peers[id];
-      }
-      const wrapper = document.getElementById("video-wrapper-" + id);
-      if (wrapper) wrapper.remove();
-      playBeep();
-    });
-
-    socket.on("room-ended", () => {
-      roomEndedOverlay.classList.remove("hidden");
-      if (meetingTimerInterval) clearInterval(meetingTimerInterval);
-    });
-
-    // Participants
-    socket.on("participants-update", ({ users, hostId }) => {
-      renderParticipants(users, hostId);
-    });
-
-    socket.on("lobby-update", ({ lobby }) => {
-      renderLobby(lobby);
-    });
-
-    // Chat
-    socket.on("chat-message", ({ from, message, time }) => {
-      chatHistory.push({ from, message, time });
-      appendChatMessage(from, message, time);
-      if (from !== displayName) playBeep();
-    });
-
-    // File share
-    socket.on("file-share", ({ from, fileName, fileDataUrl, mimeType }) => {
-      appendFileMessage(from, fileName, fileDataUrl, mimeType);
-      if (from !== displayName) playBeep();
-    });
-
-    // Whiteboard
-    socket.on("whiteboard-draw", ({ line }) => {
-      drawLine(line.x0, line.y0, line.x1, line.y1, false);
-    });
-
-    socket.on("whiteboard-clear", () => {
-      clearWhiteboard(false);
-    });
-
-    // Captions
-    socket.on("caption-update", ({ from, text }) => {
-      showCaption(from + ": " + text);
-      // For real translation, send to backend here
-    });
-
-    // Host controls
-    socket.on("force-mute", ({ type }) => {
-      if (!localStream) return;
-      if (type === "audio") {
-        localStream.getAudioTracks().forEach((t) => (t.enabled = false));
-        audioEnabled = false;
-        toggleAudioBtn.textContent = "🔇";
-      } else if (type === "video") {
-        localStream.getVideoTracks().forEach((t) => (t.enabled = false));
-        videoEnabled = false;
-        toggleVideoBtn.textContent = "🚫";
-      }
-    });
-
-    socket.on("removed-by-host", () => {
-      alert("You were removed by the host.");
-      window.location.href = "/";
-    });
-  })
-  .catch((err) => {
-    console.error("Error accessing media devices:", err);
-    alert("Could not access camera/microphone.");
-    window.location.href = "/";
+  new QRCode(shareQR, {
+    text: shareURL,
+    width: 150,
+    height: 150
   });
+
+  // Share buttons
+  copyShareLink.onclick = () => {
+    navigator.clipboard.writeText(shareURL);
+    alert("Meeting link copied!");
+  };
+
+  shareWA.onclick = () => {
+    window.open("https://wa.me/?text=" + encodeURIComponent("Join Mini Meet: " + shareURL), "_blank");
+  };
+
+  shareEmailLink.onclick = () => {
+    window.location.href = "mailto:?subject=Join Mini Meet&body=" + encodeURIComponent(shareURL);
+  };
+
+  // Countdown before enabling Start Meeting
+  let timeLeft = 15;
+  const timer = setInterval(() => {
+    timeLeft--;
+    shareCountdown.textContent = `Starting allowed in ${timeLeft}s...`;
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+      shareCountdown.textContent = "";
+      startMeetingBtn.disabled = false;
+    }
+  }, 1000);
+
+  startMeetingBtn.onclick = () => {
+    hostShareOverlay.classList.add("hidden");
+    bottomToolbar.classList.remove("hidden");
+    initializeMeeting(); // We move meeting start logic into a function
+  };
+}
+
+// Init media and join room
+if (isHost) {
+  // Show share screen first
+  showHostShareScreen();
+  bottomToolbar.classList.add("hidden");
+} else {
+  // Participants join normally
+  hostShareOverlay.classList.add("hidden");
+  initializeMeeting();
+}
+
+function initializeMeeting() {
+  navigator.mediaDevices
+    .getUserMedia({
+      video: { width: 1280, height: 720 },
+      audio: { echoCancellation: true, noiseSuppression: true },
+    })
+    .then((stream) => {
+      localStream = stream;
+      addVideoStream(myVideo, stream, displayName + " (You)");
+
+      socket.emit("join-room", {
+        roomId,
+        username: displayName,
+        password: roomPassword,
+        isHost,
+      });
+
+      // Socket events binding
+      socket.on("connect", () => {
+        mySocketId = socket.id;
+        setNetworkStatus("good");
+      });
+
+      socket.io.on("reconnect_attempt", () => {
+        setNetworkStatus("medium");
+      });
+
+      socket.io.on("reconnect_failed", () => {
+        setNetworkStatus("bad");
+      });
+
+      socket.on("join-error", (msg) => {
+        alert(msg || "Could not join room.");
+        window.location.href = "/";
+      });
+
+      socket.on("lobby-wait", (msg) => {
+        lobbyMessage.textContent = msg;
+        lobbyOverlay.classList.remove("hidden");
+      });
+
+      socket.on("joined-room", (data) => {
+        isHost = data.isHost;
+        lobbyOverlay.classList.add("hidden");
+        if (!meetingTimerInterval) startMeetingTimer();
+        if (isHost) {
+          lobbyHostSection.classList.remove("hidden");
+        }
+      });
+
+      socket.on("all-users", (users) => {
+        users.forEach((userId) => {
+          const peer = createPeer(userId, socket.id, stream);
+          peers[userId] = peer;
+        });
+      });
+
+      socket.on("user-joined", (payload) => {
+        const peer = addPeer(payload.signal, payload.callerId, stream);
+        peers[payload.callerId] = peer;
+      });
+
+      socket.on("receiving-returned-signal", (payload) => {
+        const peer = peers[payload.id];
+        if (peer) {
+          peer.signal(payload.signal);
+        }
+      });
+
+      socket.on("user-left", (id) => {
+        if (peers[id]) {
+          peers[id].destroy();
+          delete peers[id];
+        }
+        const wrapper = document.getElementById("video-wrapper-" + id);
+        if (wrapper) wrapper.remove();
+        playBeep();
+      });
+
+      socket.on("room-ended", () => {
+        roomEndedOverlay.classList.remove("hidden");
+        if (meetingTimerInterval) clearInterval(meetingTimerInterval);
+      });
+
+      // Participants
+      socket.on("participants-update", ({ users, hostId }) => {
+        renderParticipants(users, hostId);
+      });
+
+      socket.on("lobby-update", ({ lobby }) => {
+        renderLobby(lobby);
+      });
+
+      // Chat
+      socket.on("chat-message", ({ from, message, time }) => {
+        chatHistory.push({ from, message, time });
+        appendChatMessage(from, message, time);
+        if (from !== displayName) playBeep();
+      });
+
+      // File share
+      socket.on("file-share", ({ from, fileName, fileDataUrl, mimeType }) => {
+        appendFileMessage(from, fileName, fileDataUrl, mimeType);
+        if (from !== displayName) playBeep();
+      });
+
+      // Whiteboard
+      socket.on("whiteboard-draw", ({ line }) => {
+        drawLine(line.x0, line.y0, line.x1, line.y1, false);
+      });
+
+      socket.on("whiteboard-clear", () => {
+        clearWhiteboard(false);
+      });
+
+      // Captions
+      socket.on("caption-update", ({ from, text }) => {
+        showCaption(from + ": " + text);
+        // For real translation, send to backend here
+      });
+
+      // Host controls
+      socket.on("force-mute", ({ type }) => {
+        if (!localStream) return;
+        if (type === "audio") {
+          localStream.getAudioTracks().forEach((t) => (t.enabled = false));
+          audioEnabled = false;
+          toggleAudioBtn.textContent = "🔇";
+        } else if (type === "video") {
+          localStream.getVideoTracks().forEach((t) => (t.enabled = false));
+          videoEnabled = false;
+          toggleVideoBtn.textContent = "🚫";
+        }
+      });
+
+      socket.on("removed-by-host", () => {
+        alert("You were removed by the host.");
+        window.location.href = "/";
+      });
+    })
+    .catch((err) => {
+      console.error("Error accessing media devices:", err);
+      alert("Could not access camera/microphone.");
+      window.location.href = "/";
+    });
+}
 
 // WebRTC helpers
 function createPeer(userToSignal, callerId, stream) {

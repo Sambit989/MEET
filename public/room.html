@@ -6,6 +6,25 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body class="theme-dark">
+  <div id="hostShareOverlay" class="overlay">
+    <div class="overlay-card">
+      <h2>Share Meeting</h2>
+      <p>Share this link or QR code with others before starting the meeting.</p>
+
+      <p><strong>Room ID:</strong> <span id="shareRoomId"></span></p>
+      <input id="shareRoomLink" readonly style="width:100%; padding:8px; margin:8px 0;">
+
+      <div id="shareQR" style="margin: 10px auto;"></div>
+
+    <button id="copyShareLink" class="pill-btn overlay-btn">Copy Link</button>
+    <button id="shareWA" class="pill-btn overlay-btn">Share WhatsApp</button>
+    <button id="shareEmailLink" class="pill-btn overlay-btn">Share Email</button>
+
+      <p id="shareCountdown">Starting allowed in 15s...</p>
+      <button id="startMeetingBtn" class="primary-btn" disabled>Start Meeting</button>
+    </div>
+  </div>
+
   <header class="top-bar">
     <div class="top-left">
       <strong>Mini Meet</strong>
@@ -96,7 +115,7 @@
     </aside>
   </main>
 
-  <footer class="bottom-toolbar">
+  <footer id="bottomToolbar" class="bottom-toolbar">
     <button id="toggleAudio" class="toolbar-btn">🎙</button>
     <button id="toggleVideo" class="toolbar-btn">🎥</button>
     <button id="screenShareBtn" class="toolbar-btn">🖥</button>
@@ -112,6 +131,8 @@
   <script src="/socket.io/socket.io.js"></script>
   <!-- Simple Peer from CDN -->
   <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
+  <!-- QRCode from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="room.js"></script>
 </body>
 </html>

@@ -85,6 +85,7 @@ button {
   font-weight: 500;
   background: #111827;
   color: var(--fg);
+  border: 1px solid var(--border);
 }
 
 .primary-btn {
@@ -387,6 +388,21 @@ video {
   max-width: 360px;
   width: 100%;
   text-align: center;
+}
+
+.overlay-btn {
+  margin: 0.5rem;
+  display: inline-block;
+}
+
+#hostShareOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Utility */
