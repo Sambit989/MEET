@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mini Meet – Room</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="theme-dark">
+  <header class="top-bar">
+    <div class="top-left">
+      <strong>Mini Meet</strong>
+      <span id="roomLabel"></span>
+    </div>
+    <div class="top-right">
+      <span id="meetingTimer">00:00</span>
+      <span id="networkStatus" class="network-good">Good</span>
+      <button id="themeToggleRoom" class="pill-btn">🌗</button>
+    </div>
+  </header>
+
+  <div id="lobbyOverlay" class="overlay hidden">
+    <div class="overlay-card">
+      <h2>Waiting for host</h2>
+      <p id="lobbyMessage">Please wait until the host admits you.</p>
+    </div>
+  </div>
+
+  <div id="roomEndedOverlay" class="overlay hidden">
+    <div class="overlay-card">
+      <h2>Meeting ended</h2>
+      <p>The host ended this meeting.</p>
+      <button onclick="window.location.href='/'" class="primary-btn">Go Home</button>
+    </div>
+  </div>
+
+  <main class="layout">
+    <section class="video-area">
+      <div class="video-grid" id="videoGrid"></div>
+      <canvas id="whiteboard" class="whiteboard hidden"></canvas>
+      <div id="captionsBar" class="captions-bar hidden"></div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" data-tab="peopleTab">People</button>
+        <button class="tab-btn" data-tab="chatTab">Chat</button>
+        <button class="tab-btn" data-tab="aiTab">AI Notes</button>
+      </div>
+
+      <div class="tab-content" id="peopleTab">
+        <h3>Participants</h3>
+        <ul id="participantsList"></ul>
+
+        <div id="lobbyHostSection" class="host-lobby hidden">
+          <h4>Waiting in lobby</h4>
+          <ul id="lobbyList"></ul>
+        </div>
+      </div>
+
+      <div class="tab-content hidden" id="chatTab">
+        <h3>In-meeting chat</h3>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" placeholder="Send a message" />
+          <button id="chatSendBtn" class="pill-btn">Send</button>
+        </div>
+      </div>
+
+      <div class="tab-content hidden" id="aiTab">
+        <h3>AI Meeting Notes (Placeholder)</h3>
+        <p class="small-text">
+          This panel is where you would show AI-generated summaries,
+          action items, and translations. You can send the transcript/chat
+          to a backend AI service from <code>room.js</code>.
+        </p>
+        <h4>Summary</h4>
+        <div id="aiSummary" class="ai-box">
+          (Sample) AI summary will appear here after integrating with a backend.
+        </div>
+        <h4>Action Items</h4>
+        <div id="aiActions" class="ai-box">
+          (Sample) AI action points will appear here.
+        </div>
+        <h4>Live Translation</h4>
+        <select id="translationLang">
+          <option value="none">Disabled</option>
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+          <option value="es">Spanish</option>
+          <!-- Add more as needed -->
+        </select>
+        <div id="aiTranslation" class="ai-box small-text">
+          (Sample) Translated captions will appear here when integrated.
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="bottom-toolbar">
+    <button id="toggleAudio" class="toolbar-btn">🎙</button>
+    <button id="toggleVideo" class="toolbar-btn">🎥</button>
+    <button id="screenShareBtn" class="toolbar-btn">🖥</button>
+    <button id="whiteboardBtn" class="toolbar-btn">🧩</button>
+    <button id="captionsBtn" class="toolbar-btn">CC</button>
+    <button id="fileShareBtn" class="toolbar-btn">📤</button>
+    <input type="file" id="fileInput" class="hidden" />
+    <button id="noiseBtn" class="toolbar-btn">🎧</button>
+    <button id="leaveBtn" class="toolbar-btn danger">Leave</button>
+  </footer>
+
+  <!-- Socket.IO client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Simple Peer from CDN -->
+  <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
+  <script src="room.js"></script>
+</body>
+</html>
